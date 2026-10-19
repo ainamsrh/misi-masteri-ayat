@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MISI MASTERI AYAT 2 — Misi Membina Ayat Tunggal</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyberCyan: '#00f3ff',
+                        cyberBlue: '#0066ff',
+                        cyberPurple: '#8a2be2',
+                        cyberDark: '#0b0f19',
+                        cyberCard: 'rgba(15, 23, 42, 0.75)',
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        display: ['Fredoka', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe Hands CDN Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0b0f19;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-glow {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 243, 255, 0.5);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.25);
+        }
+
+        /* Sci-Fi Grid Overlay */
+        .bg-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+        }
+
+        /* Custom Word Card Glowing Effects */
+        .word-card {
+            transition: all 0.2s ease-out;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .word-card:hover, .word-card.hovered {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.6);
+            border-color: #00f3ff;
+        }
+
+        .word-card:active, .word-card.pinched {
+            transform: scale(0.95);
+        }
+
+        .word-card.selected-in-slot {
+            border-color: #22c55e;
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+        }
+
+        /* Hand Tracking Reticle Cursor */
+        #hand-reticle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: width 0.15s, height 0.15s, border-color 0.15s;
+        }
+
+        #hand-reticle.pinching {
+            width: 24px !important;
+            height: 24px !important;
+            border-color: #22c55e !important;
+            background-color: rgba(34, 197, 94, 0.4);
+        }
+
+        /* Floating Animation */
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+        .animate-float {
+            animation: floatSlow 4s ease-in-out infinite;
+        }
+
+        /* Pulse Ring */
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 10px rgba(0,243,255,0.3); }
+            50% { box-shadow: 0 0 25px rgba(0,243,255,0.8); }
+        }
+        .pulse-border {
+            animation: pulseGlow 2.5s infinite;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(11, 15, 25, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0066ff;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-cyberDark min-h-screen relative overflow-x-hidden flex flex-col justify-between selection:bg-cyberCyan selection:text-black">
+
+    <!-- Interactive Background Particle Canvas -->
+    <canvas id="bg-canvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
+    
+    <!-- Camera Feed and Hand Tracking Overlay Canvas -->
+    <div id="camera-container" class="fixed bottom-4 left-4 z-40 w-36 h-28 md:w-48 md:h-36 rounded-2xl overflow-hidden glass-panel border-2 border-cyberCyan/40 transition-all duration-300 shadow-2xl">
+        <video id="webcam" class="w-full h-full object-cover transform -scale-x-100" playsinline></video>
+        <canvas id="hand-canvas" class="absolute inset-0 w-full h-full transform -scale-x-100 pointer-events-none"></canvas>
+        <div id="hand-status-badge" class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-900/80 text-cyberCyan border border-cyberCyan/30 flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span>
+            <span id="hand-status-text">MENCARI TANGAN</span>
+        </div>
+        <button id="toggle-camera-btn" title="Tukar Kamera/Mod Sentuh" class="absolute bottom-2 right-2 p-1.5 rounded-lg bg-slate-800/80 text-white hover:bg-cyberCyan hover:text-black text-xs transition">
+            📷
+        </button>
+    </div>
+
+    <!-- Hand Cursor Reticle Element -->
+    <div id="hand-reticle" class="w-8 h-8 rounded-full border-2 border-cyberCyan bg-cyberCyan/20 flex items-center justify-center hidden shadow-lg">
+        <div class="w-2 h-2 rounded-full bg-white"></div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="relative z-10 flex flex-col min-h-screen max-w-7xl mx-auto px-4 py-3 w-full justify-between">
+        
+        <!-- HEADER HUD -->
+        <header class="glass-panel rounded-2xl p-3 md:p-4 mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-cyberCyan/30">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-cyberCyan to-cyberBlue flex items-center justify-center text-xl md:text-2xl shadow-lg shadow-cyberCyan/30">
+                    🎯
+                </div>
+                <div>
+                    <span class="text-[10px] md:text-xs tracking-widest font-bold text-cyberCyan uppercase block">MISSION CENTER</span>
+                    <h1 class="font-display text-lg md:text-2xl font-bold tracking-wide text-white leading-tight">MISI MASTERI AYAT</h1>
+                </div>
+            </div>
+
+            <!-- MISSION PROGRESS NODES -->
+            <div class="flex flex-col items-center">
+                <div class="text-xs text-slate-300 font-semibold mb-1 flex items-center gap-1">
+                    <span>MISI AYAT TUNGGAL:</span>
+                    <span id="mission-tracker-text" class="text-cyberCyan font-bold">01 / 10</span>
+                </div>
+                <div id="mission-nodes-container" class="flex items-center gap-1.5 bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-700/50">
+                    <!-- Dynamic mission nodes rendered via JS -->
+                </div>
+            </div>
+
+            <!-- SCORE & COMBO HUD -->
+            <div class="flex items-center gap-4">
+                <div class="text-center px-3 py-1 rounded-xl bg-slate-900/80 border border-slate-700">
+                    <span class="text-[9px] uppercase tracking-wider text-slate-400 block font-bold">SKOR</span>
+                    <span id="score-display" class="font-display text-lg md:text-2xl font-bold text-yellow-400">0</span>
+                </div>
+                <div class="text-center px-3 py-1 rounded-xl bg-slate-900/80 border border-slate-700">
+                    <span class="text-[9px] uppercase tracking-wider text-slate-400 block font-bold">COMBO</span>
+                    <span id="combo-display" class="font-display text-lg md:text-2xl font-bold text-cyberCyan">×1</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN GAME ARENA -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-4 my-auto items-stretch">
+            
+            <!-- LEFT PANEL: STIMULUS PICTURE & CIKGU NOVA ASSISTANT -->
+            <section class="lg:col-span-5 flex flex-col gap-4">
+                
+                <!-- STIMULUS CARD -->
+                <div class="glass-panel rounded-3xl p-4 flex flex-col items-center text-center relative overflow-hidden group">
+                    <div class="absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold bg-cyberCyan/20 text-cyberCyan border border-cyberCyan/40 flex items-center gap-1.5 z-10">
+                        <span>👁️</span>
+                        <span>PERHATIKAN GAMBAR</span>
+                    </div>
+
+                    <!-- Visual Canvas / SVG Container -->
+                    <div id="stimulus-image-container" class="w-full h-52 sm:h-64 md:h-72 my-2 rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-800/90 border border-slate-700/60 flex items-center justify-center p-3 relative overflow-hidden shadow-inner">
+                        <!-- Dynamic SVG Graphic loaded via JavaScript -->
+                    </div>
+
+                    <!-- Mission Hint / Prompt Title -->
+                    <div class="w-full mt-1 bg-slate-900/60 rounded-xl p-2.5 border border-slate-800 text-xs sm:text-sm text-slate-300">
+                        <span class="font-bold text-cyberCyan">MISI ANDA:</span> Susun perkataan di bawah menjadi ayat tunggal yang gramatis.
+                    </div>
+                </div>
+
+                <!-- AI ASSISTANT: CIKGU NOVA -->
+                <div class="glass-panel rounded-2xl p-3.5 flex items-center gap-3 border-l-4 border-l-cyberCyan">
+                    <div class="relative shrink-0">
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-cyberCyan flex items-center justify-center text-2xl shadow-md">
+                            🤖
+                        </div>
+                        <span class="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyberCyan opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-cyan-400"></span>
+                        </span>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-sm text-cyberCyan">CIKGU NOVA</h3>
+                            <span class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">AI PEMBANTU</span>
+                        </div>
+                        <p id="nova-dialogue" class="text-xs sm:text-sm text-slate-200 mt-0.5 leading-snug">
+                            "Perhatikan gambar dengan teliti dan pilih perkataan yang sesuai."
+                        </p>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- RIGHT PANEL: SENTENCE BUILDING WORKSPACE -->
+            <section class="lg:col-span-7 flex flex-col justify-between gap-4">
+                
+                <!-- DROP ZONE / SENTENCE CONTAINER -->
+                <div class="glass-panel-glow rounded-3xl p-5 flex flex-col justify-between min-h-[220px] sm:min-h-[250px] relative">
+                    <div>
+                        <div class="flex items-center justify-between mb-3 border-b border-slate-700/60 pb-2">
+                            <span class="text-xs font-bold tracking-wider text-cyberCyan uppercase flex items-center gap-2">
+                                <span>✍️</span> RUANG BINA AYAT
+                            </span>
+                            <span id="sentence-length-badge" class="text-xs text-slate-400 font-semibold">
+                                0 / 0 Perkataan
+                            </span>
+                        </div>
+
+                        <!-- DROP SLOTS -->
+                        <div id="sentence-dropzone" class="flex flex-wrap items-center justify-start gap-2.5 min-h-[110px] p-4 rounded-2xl bg-slate-950/60 border-2 border-dashed border-cyberCyan/30 transition-all">
+                            <!-- Dropzone cards placed here -->
+                            <div id="dropzone-placeholder" class="w-full text-center py-6 text-slate-500 text-sm font-medium italic">
+                                Pilih atau seret perkataan ke sini untuk membina ayat...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ACTION BUTTONS: UNDO, CLEAR, CHECK, HINT -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 mt-4 pt-2 border-t border-slate-800">
+                        <div class="flex items-center gap-2">
+                            <button id="btn-undo" onclick="game.undoLastWord()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-slate-700">
+                                ↩️ UNDO
+                            </button>
+                            <button id="btn-clear" onclick="game.clearSentence()" class="px-3.5 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-red-800/40">
+                                🗑️ KOSONGKAN
+                            </button>
+                            <button id="btn-hint" onclick="game.useHint()" class="px-3.5 py-2 rounded-xl bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border border-amber-700/50">
+                                💡 HINT
+                            </button>
+                        </div>
+
+                        <button id="btn-check" onclick="game.checkAnswer()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold text-sm sm:text-base tracking-wide shadow-lg shadow-cyberCyan/30 transition transform hover:scale-105 active:scale-95 flex items-center gap-2">
+                            <span>🎯</span> SEMAK JAWAPAN
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SCRAMBLED WORDS POOL -->
+                <div class="glass-panel rounded-3xl p-4 flex flex-col justify-center">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <span>🧩</span> BANK PERKATAAN (PILIH / SENTUH PERKATAAN)
+                    </div>
+                    <div id="word-bank-container" class="flex flex-wrap items-center justify-center gap-3 min-h-[90px]">
+                        <!-- Dynamic Word Cards Rendered Here -->
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- FOOTER BAR -->
+        <footer class="mt-4 glass-panel rounded-xl p-2.5 text-center text-xs text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                <span>Mod Kawalan: <strong id="control-mode-text" class="text-cyberCyan">Kamera Hand-Tracking Active</strong></span>
+            </div>
+            <div>
+                🎯 <i>MISI MASTERI AYAT — Pendidikan Bahasa Melayu Interaktif Sekolah Rendah</i>
+            </div>
+            <div>
+                <button onclick="game.openRevisionModal()" class="text-cyberCyan hover:underline font-bold text-xs">
+                    📚 Mod Ulang Kaji
+                </button>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- MODAL 1: START SCREEN & TUTORIAL -->
+    <div id="start-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div class="glass-panel-glow max-w-2xl w-full rounded-3xl p-6 md:p-8 flex flex-col items-center text-center relative border border-cyberCyan/60 shadow-2xl animate-float">
+            
+            <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr from-cyberBlue via-cyberCyan to-purple-600 flex items-center justify-center text-4xl mb-4 shadow-xl shadow-cyberCyan/40">
+                🎯
+            </div>
+
+            <h2 class="font-display text-2xl sm:text-4xl font-bold text-white tracking-wide mb-1">
+                MISI MASTERI AYAT
+            </h2>
+            <p class="text-cyberCyan font-semibold text-sm sm:text-base mb-4">
+                Misi Membina Ayat Tunggal Bahasa Melayu
+            </p>
+            <p class="text-slate-300 text-xs sm:text-sm max-w-lg mb-6 leading-relaxed">
+                "Perhatikan gambar, kenal pasti situasi, dan susun perkataan secara berurutan untuk membina ayat tunggal yang gramatis!"
+            </p>
+
+            <!-- OBJECTIVES GRID -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mb-6">
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-700/60 text-center">
+                    <div class="text-xl mb-1">🎯</div>
+                    <div class="text-[11px] font-bold text-slate-200">1. KENAL PASTI</div>
+                    <div class="text-[10px] text-slate-400">Lihat gambar</div>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-700/60 text-center">
+                    <div class="text-xl mb-1">🧩</div>
+                    <div class="text-[11px] font-bold text-slate-200">2. SUSUN</div>
+                    <div class="text-[10px] text-slate-400">Pilih perkataan</div>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-700/60 text-center">
+                    <div class="text-xl mb-1">✍️</div>
+                    <div class="text-[11px] font-bold text-slate-200">3. BINA AYAT</div>
+                    <div class="text-[10px] text-slate-400">Semak tatabahasa</div>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-700/60 text-center">
+                    <div class="text-xl mb-1">⭐</div>
+                    <div class="text-[11px] font-bold text-slate-200">4. KUASAI MISI</div>
+                    <div class="text-[10px] text-slate-400">Kumpul skor</div>
+                </div>
+            </div>
+
+            <!-- CONTROLS TUTORIAL -->
+            <div class="w-full bg-slate-900/90 rounded-2xl p-4 border border-cyberCyan/30 mb-6 text-left">
+                <h4 class="text-xs font-bold text-cyberCyan uppercase mb-2 flex items-center gap-2">
+                    <span>✋</span> Panduan Kawalan Pergerakan Tangan / Sentuhan:
+                </h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">✋</span> <span><strong>Tapak Tangan:</strong> Mengaktifkan pengesanan</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">☝️</span> <span><strong>Telunjuk:</strong> Gerakkan kursor ke kad</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">👌</span> <span><strong>Pinch (Cubitan):</strong> Pilih / lepas perkataan</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-base">🖱️</span> <span><strong>Tetikus / Sentuh:</strong> Sokongan penuh skrin</span>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="game.startMission()" class="w-full sm:w-auto px-10 py-3.5 rounded-2xl bg-gradient-to-r from-cyberCyan via-blue-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-black font-display font-bold text-lg tracking-wider shadow-lg shadow-cyberCyan/40 transition transform hover:scale-105 active:scale-95">
+                🚀 MULA MISI MASTERI
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CAMERA INITIALIZER / STATUS -->
+    <div id="camera-loading-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 hidden">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-6 flex flex-col items-center text-center border border-cyberCyan/50">
+            <div class="relative w-20 h-20 mb-4 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-4 border-cyberCyan/20 border-t-cyberCyan animate-spin"></div>
+                <div class="text-3xl">🔵</div>
+            </div>
+            <h3 class="font-display text-xl font-bold text-white mb-2">MENGAKTIFKAN PENGESANAN TANGAN...</h3>
+            <p class="text-xs text-slate-300 mb-4">Sila benarkan akses kamera web untuk pengalaman interaktif penuh.</p>
+            
+            <div class="w-full bg-slate-900 rounded-xl p-3 text-xs text-slate-400 flex flex-col gap-1.5 border border-slate-800 text-left mb-4">
+                <div class="flex justify-between"><span>Mengesan Kamera:</span> <strong id="cam-step-1" class="text-yellow-400">Memuatkan...</strong></div>
+                <div class="flex justify-between"><span>MediaPipe Hands:</span> <strong id="cam-step-2" class="text-slate-500">Menunggu...</strong></div>
+                <div class="flex justify-between"><span>Status Kawalan:</span> <strong id="cam-step-3" class="text-slate-500">Sedia</strong></div>
+            </div>
+
+            <button onclick="game.skipCameraAndUseTouch()" class="text-xs text-slate-400 underline hover:text-cyberCyan">
+                Gunakan Mod Tetikus / Sentuhan Skrin Saing
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL 3: VICTORY / RESULTS MODAL -->
+    <div id="victory-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-lg p-4 hidden overflow-y-auto">
+        <div class="glass-panel-glow max-w-2xl w-full rounded-3xl p-6 md:p-8 flex flex-col items-center text-center border border-cyberCyan shadow-2xl my-auto">
+            
+            <div class="text-5xl mb-2 animate-bounce">🎉</div>
+            <h2 class="font-display text-3xl md:text-4xl font-bold text-white">TAHNIAH! MISI SELESAI!</h2>
+            <p class="text-cyberCyan font-semibold text-sm mb-4">Kamu telah berjaya menguasai semua Misi Membina Ayat Tunggal!</p>
+
+            <!-- Dynamic Star Rating Container -->
+            <div id="victory-stars-container" class="flex items-center justify-center gap-3 text-4xl my-3">
+                <!-- Stars rendered via JS -->
+            </div>
+
+            <!-- STATS SUMMARY -->
+            <div class="grid grid-cols-3 gap-3 w-full my-4">
+                <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block uppercase font-bold">SKOR AKHIR</span>
+                    <span id="final-score-text" class="text-xl md:text-2xl font-bold text-yellow-400">0</span>
+                </div>
+                <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block uppercase font-bold">COMBO MAX</span>
+                    <span id="final-combo-text" class="text-xl md:text-2xl font-bold text-cyberCyan">×1</span>
+                </div>
+                <div class="bg-slate-900/90 p-3 rounded-2xl border border-slate-800">
+                    <span class="text-[10px] text-slate-400 block uppercase font-bold">HINT DIGUNAKAN</span>
+                    <span id="final-hints-text" class="text-xl md:text-2xl font-bold text-amber-400">0</span>
+                </div>
+            </div>
+
+            <!-- MASTERED SENTENCES LIST -->
+            <div class="w-full text-left bg-slate-950/80 rounded-2xl p-4 border border-slate-800 my-3 max-h-48 overflow-y-auto">
+                <h4 class="text-xs font-bold text-cyberCyan uppercase mb-2 flex items-center gap-1.5">
+                    <span>📚</span> AYAT YANG TELAH DIKUASAI:
+                </h4>
+                <ul id="mastered-sentences-list" class="space-y-2 text-xs text-slate-200">
+                    <!-- Dynamic list items -->
+                </ul>
+            </div>
+
+            <!-- MINI REFLECTION -->
+            <div class="w-full bg-slate-900/70 rounded-2xl p-3 border border-slate-800 mb-6">
+                <p class="text-xs text-slate-300 font-semibold mb-2">Bagaimanakah pengalaman anda dalam misi ini?</p>
+                <div class="flex justify-center gap-4">
+                    <button onclick="game.recordReflection('Mudah')" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-green-900/50 text-xs font-bold border border-slate-700 transition">
+                        😊 Mudah
+                    </button>
+                    <button onclick="game.recordReflection('Sederhana')" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-blue-900/50 text-xs font-bold border border-slate-700 transition">
+                        😐 Sederhana
+                    </button>
+                    <button onclick="game.recordReflection('Mencabar')" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-purple-900/50 text-xs font-bold border border-slate-700 transition">
+                        😵 Mencabar
+                    </button>
+                </div>
+            </div>
+
+            <!-- REPLAY / MENU BUTTONS -->
+            <div class="flex flex-wrap items-center justify-center gap-3 w-full">
+                <button onclick="game.restartGame()" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-cyberCyan to-blue-600 text-black font-bold text-sm tracking-wide shadow-lg shadow-cyberCyan/30 transition transform hover:scale-105">
+                    🔄 MAIN SEMULA
+                </button>
+                <button onclick="game.openRevisionModal()" class="px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm border border-slate-700 transition">
+                    💡 MOD ULANG KAJI
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL 4: REVISION MODE MODAL -->
+    <div id="revision-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-lg p-4 hidden">
+        <div class="glass-panel-glow max-w-3xl w-full rounded-3xl p-6 flex flex-col border border-cyberCyan shadow-2xl max-h-[90vh]">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📚</span>
+                    <h3 class="font-display text-xl font-bold text-white">MOD ULANG KAJI — AYAT TUNGGAL</h3>
+                </div>
+                <button onclick="game.closeRevisionModal()" class="text-slate-400 hover:text-white text-xl font-bold">
+                    ✕
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-300 mb-4">
+                Pelajari semula gambar dan susunan ayat tunggal secara santai tanpa tekanan masa atau pemarkahan.
+            </p>
+
+            <div id="revision-list" class="flex-1 overflow-y-auto space-y-4 pr-1">
+                <!-- Populated dynamically via JS -->
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+                <button onclick="game.closeRevisionModal()" class="px-6 py-2 rounded-xl bg-cyberCyan text-black font-bold text-sm">
+                    TUTUP ULANG KAJI
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBeep(freq = 440, type = 'sine', duration = 0.1, vol = 0.1) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+
+            playSelect() {
+                this.init();
+                this.playBeep(587.33, 'sine', 0.08, 0.15); // D5
+            }
+
+            playPlace() {
+                this.init();
+                this.playBeep(440, 'triangle', 0.1, 0.2); // A4
+            }
+
+            playCorrect() {
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { // C5, E5, G5, C6
+                    setTimeout(() => this.playBeep(freq, 'triangle', 0.25, 0.25), i * 90);
+                });
+            }
+
+            playWrong() {
+                this.init();
+                if (!this.ctx) return;
+                this.playBeep(220, 'sawtooth', 0.2, 0.2);
+                setTimeout(() => this.playBeep(185, 'sawtooth', 0.3, 0.2), 150);
+            }
+
+            playHint() {
+                this.init();
+                this.playBeep(880, 'sine', 0.15, 0.15);
+                setTimeout(() => this.playBeep(1174.66, 'sine', 0.2, 0.15), 120);
+            }
+
+            playVictory() {
+                this.init();
+                if (!this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 987.77, 1046.50];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => this.playBeep(freq, 'sine', 0.3, 0.25), idx * 120);
+                });
+            }
+        }
+
+        const scene = (c1, c2, a, b) => `<svg viewBox="0 0 400 240" class="w-full h-full"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${c1}"/><stop offset="100%" stop-color="${c2}"/></linearGradient></defs><rect width="400" height="240" fill="url(#g)"/><text x="170" y="150" font-size="110" text-anchor="middle">${a}</text><text x="300" y="190" font-size="64" text-anchor="middle">${b}</text></svg>`;
+        const MISSIONS_DATA = [
+            { id: 1, title: "MISI 1 — DI PASAR", correctSentence: ["Ibu", "membeli", "sayur", "di", "pasar."], hint1: "Siapakah yang pergi membeli barang?", hint2: "Mulakan ayat dengan 'Ibu'.", svgGraphic: scene("#7c2d12", "#f59e0b", "🛒", "🥬") },
+            { id: 2, title: "MISI 2 — HARI RAYA", correctSentence: ["Kami", "menyambut", "Hari", "Raya", "bersama", "keluarga."], hint1: "Apakah yang disambut oleh kami?", hint2: "Perkataan pertama ialah 'Kami'.", svgGraphic: scene("#1e1b4b", "#6d28d9", "🕌", "🌙") },
+            { id: 3, title: "MISI 3 — DI KELAS", correctSentence: ["Cikgu", "Aminah", "menulis", "di", "papan", "hitam."], hint1: "Siapakah yang menulis di papan hitam?", hint2: "Mulakan dengan 'Cikgu'.", svgGraphic: scene("#065f46", "#10b981", "👩‍🏫", "📝") },
+            { id: 4, title: "MISI 4 — CUACA", correctSentence: ["Hujan", "turun", "dengan", "lebat", "petang", "tadi."], hint1: "Apakah yang turun dari langit?", hint2: "Letakkan 'Hujan' di awal ayat.", svgGraphic: scene("#1e3a8a", "#64748b", "🌧️", "☔") },
+            { id: 5, title: "MISI 5 — DI JALAN RAYA", correctSentence: ["Ayah", "memandu", "kereta", "ke", "pejabat."], hint1: "Siapakah yang memandu kereta?", hint2: "Mulakan ayat dengan 'Ayah'.", svgGraphic: scene("#0f172a", "#0284c7", "🚗", "🏢") },
+            { id: 6, title: "MISI 6 — DI KANTIN", correctSentence: ["Adik", "makan", "nasi", "lemak", "di", "kantin."], hint1: "Apakah yang dimakan oleh adik?", hint2: "Perkataan pertama ialah 'Adik'.", svgGraphic: scene("#7f1d1d", "#f97316", "🍛", "🥤") },
+            { id: 7, title: "MISI 7 — DI SUNGAI", correctSentence: ["Gajah", "minum", "air", "di", "sungai."], hint1: "Haiwan apakah yang minum air?", hint2: "Letakkan 'Gajah' di awal ayat.", svgGraphic: scene("#14532d", "#0ea5e9", "🐘", "💧") },
+            { id: 8, title: "MISI 8 — LAGU KEBANGSAAN", correctSentence: ["Kami", "menyanyi", "lagu", "Negaraku", "dengan", "bangga."], hint1: "Lagu apakah yang dinyanyikan?", hint2: "Mulakan ayat dengan 'Kami'.", svgGraphic: scene("#1e3a8a", "#dc2626", "🇲🇾", "🎶") },
+            { id: 9, title: "MISI 9 — DI KEBUN", correctSentence: ["Nenek", "menanam", "pokok", "bunga", "di", "kebun."], hint1: "Siapakah yang menanam pokok bunga?", hint2: "Mulakan ayat dengan 'Nenek'.", svgGraphic: scene("#365314", "#84cc16", "🌺", "👵") },
+            { id: 10, title: "MISI 10 — WAKTU MALAM", correctSentence: ["Kakak", "membaca", "buku", "cerita", "sebelum", "tidur."], hint1: "Apakah yang dibaca oleh kakak?", hint2: "Perkataan pertama ialah 'Kakak'.", svgGraphic: scene("#312e81", "#1e293b", "📖", "🌙") },
+        ];
+
+        class GameController {
+            constructor() {
+                this.audio = new AudioEngine();
+                this.currentMissionIdx = 0;
+                this.score = 0;
+                this.combo = 1;
+                this.maxCombo = 1;
+                this.hintsUsedCount = 0;
+                this.currentHintStage = 0;
+                this.masteredSentences = [];
+                
+                this.scrambledWords = [];
+                this.selectedWords = [];
+                this.handTrackingActive = false;
+                
+                // Hand tracking interaction variables
+                this.handPos = { x: 0, y: 0 };
+                this.smoothHandPos = { x: 0, y: 0 };
+                this.isPinching = false;
+                this.wasPinching = false;
+                this.hoveredElement = null;
+
+                this.initBackgroundCanvas();
+            }
+
+            initBackgroundCanvas() {
+                const canvas = document.getElementById('bg-canvas');
+                const ctx = canvas.getContext('2d');
+                let width = canvas.width = window.innerWidth;
+                let height = canvas.height = window.innerHeight;
+
+                window.addEventListener('resize', () => {
+                    width = canvas.width = window.innerWidth;
+                    height = canvas.height = window.innerHeight;
+                });
+
+                const particles = Array.from({ length: 45 }, () => ({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: Math.random() * 2 + 1,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    alpha: Math.random() * 0.5 + 0.2
+                }));
+
+                const renderBg = () => {
+                    ctx.clearRect(0, 0, width, height);
+                    particles.forEach(p => {
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        if (p.x < 0) p.x = width;
+                        if (p.x > width) p.x = 0;
+                        if (p.y < 0) p.y = height;
+                        if (p.y > height) p.y = 0;
+
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(0, 243, 255, ${p.alpha})`;
+                        ctx.fill();
+                    });
+                    requestAnimationFrame(renderBg);
+                };
+                renderBg();
+            }
+
+            startMission() {
+                this.audio.init();
+                document.getElementById('start-modal').classList.add('hidden');
+                this.initCameraTracking();
+                this.loadMission(0);
+            }
+
+            loadMission(index) {
+                if (index >= MISSIONS_DATA.length) {
+                    this.triggerVictory();
+                    return;
+                }
+
+                this.currentMissionIdx = index;
+                this.currentHintStage = 0;
+                const mission = MISSIONS_DATA[index];
+
+                // Shuffle word cards randomly
+                this.scrambledWords = [...mission.correctSentence].sort(() => Math.random() - 0.5);
+                // In case random shuffle matches correct order exactly by coincidence, shuffle again
+                if (this.scrambledWords.join(' ') === mission.correctSentence.join(' ')) {
+                    this.scrambledWords.reverse();
+                }
+
+                this.selectedWords = [];
+
+                this.updateHUD();
+                this.renderStimulus();
+                this.renderWordsPool();
+                this.renderSentenceDropzone();
+                
+                this.setNovaDialogue(`"Misi ${index + 1}: Perhatikan gambar di sebelah dan susun perkataan!"`);
+            }
+
+            updateHUD() {
+                document.getElementById('score-display').innerText = this.score;
+                document.getElementById('combo-display').innerText = `×${this.combo}`;
+                document.getElementById('mission-tracker-text').innerText = `${String(this.currentMissionIdx + 1).padStart(2, '0')} / ${String(MISSIONS_DATA.length).padStart(2, '0')}`;
+
+                // Render Nodes
+                const nodesContainer = document.getElementById('mission-nodes-container');
+                nodesContainer.innerHTML = '';
+                MISSIONS_DATA.forEach((m, idx) => {
+                    const node = document.createElement('div');
+                    node.className = `w-2.5 h-2.5 rounded-full transition-all ${
+                        idx < this.currentMissionIdx 
+                            ? 'bg-green-400 shadow-sm shadow-green-400' 
+                            : idx === this.currentMissionIdx 
+                                ? 'bg-cyberCyan shadow-md shadow-cyberCyan scale-125' 
+                                : 'bg-slate-700'
+                    }`;
+                    nodesContainer.appendChild(node);
+                });
+            }
+
+            renderStimulus() {
+                const mission = MISSIONS_DATA[this.currentMissionIdx];
+                const container = document.getElementById('stimulus-image-container');
+                container.innerHTML = mission.svgGraphic;
+            }
+
+            renderWordsPool() {
+                const poolContainer = document.getElementById('word-bank-container');
+                poolContainer.innerHTML = '';
+
+                this.scrambledWords.forEach((word, idx) => {
+                    const isSelected = this.selectedWords.includes(idx);
+                    
+                    const card = document.createElement('button');
+                    card.className = `word-card px-4 py-2.5 rounded-2xl font-bold text-base sm:text-lg border-2 text-white glass-panel flex items-center justify-center transition ${
+                        isSelected 
+                            ? 'opacity-30 border-slate-700 pointer-events-none scale-90' 
+                            : 'border-cyberCyan/50 hover:border-cyberCyan hover:bg-cyberCyan/20 active:scale-95'
+                    }`;
+                    card.setAttribute('data-word-index', idx);
+                    card.innerText = word;
+                    
+                    card.onclick = () => this.selectWordFromPool(idx);
+                    poolContainer.appendChild(card);
+                });
+            }
+
+            renderSentenceDropzone() {
+                const dropzone = document.getElementById('sentence-dropzone');
+                const badge = document.getElementById('sentence-length-badge');
+                const mission = MISSIONS_DATA[this.currentMissionIdx];
+
+                badge.innerText = `${this.selectedWords.length} / ${mission.correctSentence.length} Perkataan`;
+
+                if (this.selectedWords.length === 0) {
+                    dropzone.innerHTML = `
+                        <div id="dropzone-placeholder" class="w-full text-center py-6 text-slate-500 text-xs sm:text-sm font-medium italic">
+                            Pilih atau seret perkataan ke sini untuk membina ayat...
+                        </div>
+                    `;
+                    return;
+                }
+
+                dropzone.innerHTML = '';
+                this.selectedWords.forEach((poolIdx, position) => {
+                    const wordText = this.scrambledWords[poolIdx];
+
+                    const slotCard = document.createElement('div');
+                    slotCard.className = 'word-card selected-in-slot px-4 py-2.5 rounded-2xl font-bold text-base sm:text-lg border-2 border-green-400 bg-green-950/40 text-green-200 flex items-center gap-2 shadow-lg animate-float';
+                    slotCard.innerHTML = `
+                        <span>${wordText}</span>
+                        <span class="text-xs text-green-400/70 hover:text-red-400 cursor-pointer" onclick="event.stopPropagation(); game.removeWordFromSlot(${position})">✕</span>
+                    `;
+                    slotCard.onclick = () => this.removeWordFromSlot(position);
+                    dropzone.appendChild(slotCard);
+                });
+            }
+
+            selectWordFromPool(idx) {
+                if (this.selectedWords.includes(idx)) return;
+                this.selectedWords.push(idx);
+                this.audio.playSelect();
+                this.renderWordsPool();
+                this.renderSentenceDropzone();
+            }
+
+            removeWordFromSlot(position) {
+                this.selectedWords.splice(position, 1);
+                this.audio.playPlace();
+                this.renderWordsPool();
+                this.renderSentenceDropzone();
+            }
+
+            undoLastWord() {
+                if (this.selectedWords.length > 0) {
+                    this.selectedWords.pop();
+                    this.audio.playPlace();
+                    this.renderWordsPool();
+                    this.renderSentenceDropzone();
+                }
+            }
+
+            clearSentence() {
+                if (this.selectedWords.length > 0) {
+                    this.selectedWords = [];
+                    this.audio.playPlace();
+                    this.renderWordsPool();
+                    this.renderSentenceDropzone();
+                }
+            }
+
+            useHint() {
+                this.hintsUsedCount++;
+                this.currentHintStage++;
+                this.audio.playHint();
+
+                const mission = MISSIONS_DATA[this.currentMissionIdx];
+                if (this.currentHintStage === 1) {
+                    this.setNovaDialogue(`💡 PETUNJUK 1: "${mission.hint1}"`);
+                } else if (this.currentHintStage === 2) {
+                    this.setNovaDialogue(`💡 PETUNJUK 2: "${mission.hint2}"`);
+                } else {
+                    // Automatically place first word if available
+                    const firstWord = mission.correctSentence[0];
+                    const poolIdx = this.scrambledWords.findIndex(w => w === firstWord);
+                    if (poolIdx !== -1 && !this.selectedWords.includes(poolIdx)) {
+                        this.selectedWords = [poolIdx];
+                        this.renderWordsPool();
+                        this.renderSentenceDropzone();
+                    }
+                    this.setNovaDialogue(`💡 PETUNJUK 3: Perkataan pertama ialah "${firstWord}".`);
+                }
+            }
+
+            checkAnswer() {
+                const mission = MISSIONS_DATA[this.currentMissionIdx];
+                const constructedSentence = this.selectedWords.map(i => this.scrambledWords[i]);
+
+                if (constructedSentence.length === 0) {
+                    this.setNovaDialogue("⚠️ Sila pilih perkataan dahulu sebelum menyemak!");
+                    this.audio.playWrong();
+                    return;
+                }
+
+                const isCorrect = constructedSentence.length === mission.correctSentence.length &&
+                    constructedSentence.every((val, index) => val === mission.correctSentence[index]);
+
+                if (isCorrect) {
+                    this.audio.playCorrect();
+                    
+                    // Score calculation
+                    let earnedScore = 100 * this.combo;
+                    if (this.currentHintStage === 0) {
+                        earnedScore += 50; // No hint bonus
+                    }
+                    this.score += earnedScore;
+                    this.combo = Math.min(this.combo + 1, 4);
+                    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+
+                    this.masteredSentences.push(mission.correctSentence.join(' '));
+                    this.updateHUD();
+
+                    const sentenceText = mission.correctSentence.join(' ');
+                    this.setNovaDialogue(`🎉 AYAT BETUL! "+${earnedScore} Mata!" — ${sentenceText}`);
+
+                    // Highlight Green Effect
+                    const dropzone = document.getElementById('sentence-dropzone');
+                    dropzone.classList.add('bg-green-900/50', 'border-green-400');
+
+                    setTimeout(() => {
+                        dropzone.classList.remove('bg-green-900/50', 'border-green-400');
+                        this.loadMission(this.currentMissionIdx + 1);
+                    }, 2200);
+
+                } else {
+                    this.audio.playWrong();
+                    this.combo = 1; // Reset combo multiplier on mistake
+                    this.updateHUD();
+
+                    this.setNovaDialogue("❌ CUBA LAGI! Susunan perkataan belum tepat. Teliti semula gambar.");
+                    
+                    const dropzone = document.getElementById('sentence-dropzone');
+                    dropzone.classList.add('bg-red-900/40', 'border-red-500');
+                    setTimeout(() => {
+                        dropzone.classList.remove('bg-red-900/40', 'border-red-500');
+                    }, 1000);
+                }
+            }
+
+            setNovaDialogue(text) {
+                document.getElementById('nova-dialogue').innerText = text;
+            }
+
+            triggerVictory() {
+                this.audio.playVictory();
+                document.getElementById('victory-modal').classList.remove('hidden');
+
+                document.getElementById('final-score-text').innerText = this.score;
+                document.getElementById('final-combo-text').innerText = `×${this.maxCombo}`;
+                document.getElementById('final-hints-text').innerText = this.hintsUsedCount;
+
+                // Render Stars
+                const starsContainer = document.getElementById('victory-stars-container');
+                starsContainer.innerHTML = '';
+                let starCount = 1;
+                if (this.score >= 1000) starCount = 3;
+                else if (this.score >= 600) starCount = 2;
+
+                for (let i = 0; i < 3; i++) {
+                    const star = document.createElement('span');
+                    star.innerText = i < starCount ? '⭐' : '☆';
+                    star.className = i < starCount ? 'text-yellow-400 animate-pulse' : 'text-slate-600';
+                    starsContainer.appendChild(star);
+                }
+
+                // Render Mastered Sentences
+                const list = document.getElementById('mastered-sentences-list');
+                list.innerHTML = '';
+                this.masteredSentences.forEach((sentence, idx) => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800';
+                    li.innerHTML = `<span class="text-cyberCyan font-bold">Misi ${idx+1}:</span> <span>${sentence}</span>`;
+                    list.appendChild(li);
+                });
+            }
+
+            recordReflection(level) {
+                this.setNovaDialogue(`Terima kasih atas maklum balas! Anda memilih tahap: ${level}.`);
+                document.getElementById('victory-modal').classList.add('hidden');
+                this.openRevisionModal();
+            }
+
+            restartGame() {
+                this.score = 0;
+                this.combo = 1;
+                this.maxCombo = 1;
+                this.hintsUsedCount = 0;
+                this.masteredSentences = [];
+                document.getElementById('victory-modal').classList.add('hidden');
+                this.loadMission(0);
+            }
+
+            openRevisionModal() {
+                const modal = document.getElementById('revision-modal');
+                const list = document.getElementById('revision-list');
+                list.innerHTML = '';
+
+                MISSIONS_DATA.forEach((mission, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center gap-4 border border-slate-700';
+                    item.innerHTML = `
+                        <div class="w-full md:w-48 h-32 shrink-0 bg-slate-900 rounded-xl overflow-hidden border border-slate-800 p-2">
+                            ${mission.svgGraphic}
+                        </div>
+                        <div class="flex-1 text-left">
+                            <span class="text-xs text-cyberCyan font-bold uppercase tracking-wider">MISI ${idx+1}</span>
+                            <h4 class="font-bold text-base text-white my-1">${mission.correctSentence.join(' ')}</h4>
+                            <p class="text-xs text-slate-400">Petunjuk: ${mission.hint1}</p>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+
+                modal.classList.remove('hidden');
+            }
+
+            closeRevisionModal() {
+                document.getElementById('revision-modal').classList.add('hidden');
+            }
+
+            initCameraTracking() {
+                const loadingModal = document.getElementById('camera-loading-modal');
+                loadingModal.classList.remove('hidden');
+
+                const videoElement = document.getElementById('webcam');
+                const canvasElement = document.getElementById('hand-canvas');
+                const canvasCtx = canvasElement.getContext('2d');
+                const reticle = document.getElementById('hand-reticle');
+
+                document.getElementById('cam-step-1').innerText = 'Mengaktifkan...';
+
+                try {
+                    const hands = new Hands({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`
+                    });
+
+                    hands.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    document.getElementById('cam-step-2').innerText = 'Memuatkan model...';
+
+                    hands.onResults((results) => {
+                        canvasCtx.save();
+                        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+                        if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                            const landmarks = results.multiHandLandmarks[0];
+
+                            // Draw subtle hand landmarks on overlay camera view safely
+                            if (typeof drawConnectors === 'function' && typeof HAND_CONNECTIONS !== 'undefined') {
+                                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00f3ff', lineWidth: 2 });
+                            }
+                            if (typeof drawLandmarks === 'function') {
+                                drawLandmarks(canvasCtx, landmarks, { color: '#ffffff', lineWidth: 1, radius: 3 });
+                            } else {
+                                canvasCtx.fillStyle = '#ffffff';
+                                landmarks.forEach(pt => {
+                                    canvasCtx.beginPath();
+                                    canvasCtx.arc(pt.x * canvasElement.width, pt.y * canvasElement.height, 3, 0, 2 * Math.PI);
+                                    canvasCtx.fill();
+                                });
+                            }
+
+                            // Landmark 8: Index Finger Tip
+                            // Landmark 4: Thumb Tip
+                            const indexTip = landmarks[8];
+                            const thumbTip = landmarks[4];
+
+                            // Calculate screen position inverted horizontally
+                            const screenX = (1 - indexTip.x) * window.innerWidth;
+                            const screenY = indexTip.y * window.innerHeight;
+
+                            // Exponential Smoothing Filter (LERP)
+                            this.smoothHandPos.x += (screenX - this.smoothHandPos.x) * 0.35;
+                            this.smoothHandPos.y += (screenY - this.smoothHandPos.y) * 0.35;
+
+                            reticle.classList.remove('hidden');
+                            reticle.style.left = `${this.smoothHandPos.x}px`;
+                            reticle.style.top = `${this.smoothHandPos.y}px`;
+
+                            // Calculate pinch distance between index tip and thumb tip
+                            const dist = Math.hypot(indexTip.x - thumbTip.x, indexTip.y - thumbTip.y);
+                            this.isPinching = dist < 0.08;
+
+                            if (this.isPinching) {
+                                reticle.classList.add('pinching');
+                            } else {
+                                reticle.classList.remove('pinching');
+                            }
+
+                            // Trigger click on pinch gesture toggle
+                            if (this.isPinching && !this.wasPinching) {
+                                this.triggerVirtualClick(this.smoothHandPos.x, this.smoothHandPos.y);
+                            }
+
+                            this.wasPinching = this.isPinching;
+
+                            document.getElementById('hand-status-text').innerText = '✋ TANGAN DIKESAN';
+                            document.getElementById('hand-status-badge').className = 'absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-950/90 text-green-400 border border-green-500/40 flex items-center gap-1';
+
+                        } else {
+                            reticle.classList.add('hidden');
+                            document.getElementById('hand-status-text').innerText = 'MENCARI TANGAN';
+                            document.getElementById('hand-status-badge').className = 'absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-900/80 text-cyberCyan border border-cyberCyan/30 flex items-center gap-1';
+                        }
+                        canvasCtx.restore();
+                    });
+
+                    const camera = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (this._handFailed) return; try { if (videoElement.videoWidth && canvasElement.width !== videoElement.videoWidth) { canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight; } await hands.send({ image: videoElement }); } catch (e) { this.handError(e); }
+                        },
+                        width: 320,
+                        height: 240
+                    });
+
+                    Promise.race([hands.initialize(), new Promise((_, rej) => setTimeout(() => rej(new Error('Model tamat masa (25 saat)')), 25000))]).then(() => { document.getElementById('cam-step-2').innerText = 'Model sedia!'; return camera.start(); }).then(() => {
+                        document.getElementById('cam-step-3').innerText = 'Aktif!';
+                        setTimeout(() => {
+                            loadingModal.classList.add('hidden');
+                        }, 500);
+                    }).catch(err => {
+                        console.warn("Camera fallback triggered:", err); this.handError(err); return;
+                        this.skipCameraAndUseTouch();
+                    });
+
+                } catch (err) {
+                    console.warn("MediaPipe Hands fallback triggered:", err);
+                    this.skipCameraAndUseTouch();
+                }
+            }
+
+            triggerVirtualClick(x, y) {
+                // Ensure coordinates are within valid viewport boundaries
+                if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) return;
+
+                const elem = document.elementFromPoint(x, y);
+                if (elem) {
+                    // Check if click method exists (standard HTML elements)
+                    if (typeof elem.click === 'function') {
+                        elem.click();
+                    } else if (typeof elem.dispatchEvent === 'function') {
+                        // Fallback for SVG elements or other nodes without .click()
+                        const clickEvent = new MouseEvent('click', {
+                            bubbles: true,
+                            cancelable: true,
+                            view: window,
+                            clientX: x,
+                            clientY: y
+                        });
+                        elem.dispatchEvent(clickEvent);
+                    }
+                }
+            }
+
+            handError(err) {
+                if (this._handFailed) return;
+                this._handFailed = true;
+                console.error('Ralat pengesanan tangan:', err);
+                this.skipCameraAndUseTouch();
+                const hint = location.protocol === 'file:' ? ' Fail dibuka terus dari komputer; guna localhost atau hos https.' : '';
+                document.getElementById('control-mode-text').innerText = 'Kawalan tangan gagal (' + ((err && err.message) || err) + '). Guna tetikus/sentuhan.' + hint;
+                document.getElementById('hand-status-text').innerText = 'RALAT MODEL';
+            }
+
+            skipCameraAndUseTouch() {
+                document.getElementById('camera-loading-modal').classList.add('hidden');
+                document.getElementById('control-mode-text').innerText = 'Tetikus / Sentuhan Skrin Saing (Fallback Active)';
+            }
+        }
+
+        // Initialize Global Game Instance
+        let game = null;
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new GameController();
+        });
+    </script>
+</body>
+</html>
